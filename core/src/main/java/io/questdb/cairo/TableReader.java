@@ -909,14 +909,14 @@ public class TableReader implements Closeable, SymbolTableSource {
                     // good, very stable, congrats
                     this.txn = txn;
                     this.rowCount = txFile.getFixedRowCount() + txFile.getTransientRowCount();
-                    LOG.info()
-                            .$("new transaction [txn=").$(txn)
-                            .$(", transientRowCount=").$(txFile.getTransientRowCount())
-                            .$(", fixedRowCount=").$(txFile.getFixedRowCount())
-                            .$(", maxTimestamp=").$ts(txFile.getMaxTimestamp())
-                            .$(", attempts=").$(count)
-                            .$(", thread=").$(Thread.currentThread().getName())
-                            .$(']').$();
+//                    LOG.info()
+//                            .$("new transaction [txn=").$(txn)
+//                            .$(", transientRowCount=").$(txFile.getTransientRowCount())
+//                            .$(", fixedRowCount=").$(txFile.getFixedRowCount())
+//                            .$(", maxTimestamp=").$ts(txFile.getMaxTimestamp())
+//                            .$(", attempts=").$(count)
+//                            .$(", thread=").$(Thread.currentThread().getName())
+//                            .$(']').$();
                     return true;
                 }
                 // This is unlucky, sequences have changed while we were reading transaction data
@@ -934,8 +934,31 @@ public class TableReader implements Closeable, SymbolTableSource {
     private void reconcileOpenPartitions(long prevPartitionVersion) {
         // Reconcile partition full or partial
         // Partial will only update row count of last partition and append new partitions
+        if (this.txFile.getPartitionTableVersion() == prevPartitionVersion && this.txFile.getPartitionsCount() == partitionCount && partitionCount > 0) {
+            // Fastest path
+            int partitionIndex = partitionCount - 1;
+            long openPartitionSize = this.openPartitionSize.getQuick(partitionIndex);
+            long newSize = txFile.getPartitionSize(partitionIndex);
+            if (openPartitionSize > -1L && newSize > openPartitionSize) {
+                // Resize partition
+                reloadPartition(partitionIndex, newSize);
+                this.openPartitionSize.setQuick(partitionIndex, newSize);
+
+                assert newSize >= openPartitionSize;
+                assert txFile.getPartitionTimestamp(partitionIndex) == openPartitionTimestamp.getQuick(partitionIndex);
+            } else if (newSize > openPartitionSize) {
+                reloadSymbolMapCounts();
+            }
+            return;
+        }
+
+        // Slow path
+        reconcileOpenPartitionsSlow(prevPartitionVersion);
+    }
+
+    private void reconcileOpenPartitionsSlow(long prevPartitionVersion) {
         if (this.txFile.getPartitionTableVersion() == prevPartitionVersion) {
-            reconcileOpenPartitionsFrom(Math.max(0, partitionCount - 1));
+            reconcileOpenPartitionsFrom(Math.max(partitionCount - 1, 0));
             return;
         }
         reconcileOpenPartitionsFrom(0);

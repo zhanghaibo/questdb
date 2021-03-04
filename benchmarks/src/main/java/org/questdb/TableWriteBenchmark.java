@@ -48,6 +48,8 @@ public class TableWriteBenchmark {
     private static TableWriter writer;
     private static TableWriter writer2;
     private static TableWriter writer3;
+    private static TableReader reader;
+    private static TableReader reader3;
     private static final CairoConfiguration configuration = new DefaultCairoConfiguration(".");
     private long ts;
 
@@ -83,6 +85,8 @@ public class TableWriteBenchmark {
         writer.truncate();
         writer.close();
 
+        reader.close();
+
         writer2.commit();
         writer2.truncate();
         writer2.close();
@@ -90,6 +94,7 @@ public class TableWriteBenchmark {
         writer3.commit();
         writer3.truncate();
         writer3.close();
+//        reader3.close();
 
         ts = 0;
     }
@@ -99,68 +104,90 @@ public class TableWriteBenchmark {
         writer = new TableWriter(configuration, "test1");
         writer2 = new TableWriter(configuration, "test2");
         writer3 = new TableWriter(configuration, "test3");
+
+        reader = new TableReader(configuration, "test1");
+//        reader3 = new TableReader(configuration, "table3");
         rnd.reset();
     }
 
-    @Benchmark
-    public void testRnd() {
-        rnd.nextLong();
-    }
+//    @Benchmark
+//    public void testRnd() {
+//        rnd.nextLong();
+//    }
 
     @Benchmark
     public void testWriteAsync() {
         TableWriter.Row r = writer.newRow();
         r.putLong(0, rnd.nextLong());
         r.append();
-        writer.commit(CommitMode.ASYNC);
+        writer.commit();
     }
 
     @Benchmark
-    public void testWriteNoCommit() {
+    public void testWriteAsyncAndReaderReload() {
         TableWriter.Row r = writer.newRow();
         r.putLong(0, rnd.nextLong());
         r.append();
+        writer.commit();
+        reader.reload();
+        reader.openPartition(0);
     }
 
-    @Benchmark
-    public void testWriteTimestampAsync() {
-        TableWriter.Row r = writer2.newRow(ts++ << 8);
-        r.append();
-        writer2.commit(CommitMode.ASYNC);
-    }
-
-    @Benchmark
-    public void testWriteTimestampNoCommit() {
-        TableWriter.Row r = writer2.newRow(ts++ << 8);
-        r.append();
-    }
-
-    @Benchmark
-    public void testWritePartitionedTimestampNoCommit() {
-        TableWriter.Row r = writer3.newRow(ts++ << 8);
-        r.append();
-    }
-
-    @Benchmark
-    public void testWritePartitionedTimestampAsync() {
-        TableWriter.Row r = writer3.newRow(ts++ << 8);
-        r.append();
-        writer3.commit(CommitMode.ASYNC);
-    }
-
-    @Benchmark
-    public void testWriteNoSync() {
-        TableWriter.Row r = writer.newRow();
-        r.putLong(0, rnd.nextLong());
-        r.append();
-        writer.commit(CommitMode.NOSYNC);
-    }
-
-    @Benchmark
-    public void testWriteSync() {
-        TableWriter.Row r = writer.newRow();
-        r.putLong(0, rnd.nextLong());
-        r.append();
-        writer.commit(CommitMode.SYNC);
-    }
+//    @Benchmark
+//    public void testWriteNoCommit() {
+//        TableWriter.Row r = writer.newRow();
+//        r.putLong(0, rnd.nextLong());
+//        r.append();
+//    }
+//
+//    @Benchmark
+//    public void testWriteTimestampAsync() {
+//        TableWriter.Row r = writer2.newRow(ts++ << 8);
+//        r.append();
+//        writer2.commit(CommitMode.ASYNC);
+//    }
+//
+//    @Benchmark
+//    public void testWriteTimestampNoCommit() {
+//        TableWriter.Row r = writer2.newRow(ts++ << 8);
+//        r.append();
+//    }
+//
+//    @Benchmark
+//    public void testWritePartitionedTimestampNoCommit() {
+//        TableWriter.Row r = writer3.newRow(ts++ << 8);
+//        r.append();
+//    }
+//
+//    @Benchmark
+//    public void testWritePartitionedTimestampAsync() {
+//        TableWriter.Row r = writer3.newRow(ts++ << 8);
+//        r.append();
+//        writer3.commit(CommitMode.ASYNC);
+//    }
+//
+//    @Benchmark
+//    public void testWritePartitionedTimestampAsyncReaderReload() {
+//        TableWriter.Row r = writer3.newRow(ts++ << 8);
+//        r.append();
+//        writer3.commit(CommitMode.ASYNC);
+//        reader3.reload();
+//        reader3.openPartition(0);
+//    }
+//
+//    @Benchmark
+//    public void testWriteNoSync() {
+//        TableWriter.Row r = writer.newRow();
+//        r.putLong(0, rnd.nextLong());
+//        r.append();
+//        writer.commit(CommitMode.NOSYNC);
+//    }
+//
+//    @Benchmark
+//    public void testWriteSync() {
+//        TableWriter.Row r = writer.newRow();
+//        r.putLong(0, rnd.nextLong());
+//        r.append();
+//        writer.commit(CommitMode.SYNC);
+//    }
 }
